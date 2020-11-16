@@ -3,7 +3,7 @@ import numpy as np
 
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import Session
-from sqlalchemy import create_engine, func
+from sqlalchemy import create_engine, func, inspect
 
 from flask import Flask, jsonify
 
@@ -19,6 +19,9 @@ Base = automap_base()
 # reflect the tables
 Base.prepare(engine, reflect=True)
 
+inspector = inspect(engine)
+print(inspector.get_table_names())
+
 # Save reference to the table
 Measurement = Base.classes.measurement
 Station = Base.classes.station
@@ -27,27 +30,6 @@ Station = Base.classes.station
 # Flask setup
 #################################################
 app = Flask(__name__)
-
-#################################################
-# Define necessary variables
-#################################################
-
-session = Session(engine)
-
-# Calculate the most active station.
-most_active_station = session.query(Measurement.station).\
-    group_by(Measurement.station).\
-    order_by(func.count(Measurement.station).desc()).first()[0]
-
-# Calculate the last data point in this station
-session.query(Measurement.date).\
-    order_by(Measurement.date.desc()).\
-    filter(Measurement.station == most_active_station).first()
-
-# Calculate the date one year from the last data point in the database (2017-08-18)
-year_from_latest_date = dt.date(2017, 8, 18) - dt.timedelta(days = 365)
-
-session.close()
 
 
 #################################################
@@ -124,8 +106,13 @@ def stations():
 def tobs():
     session = Session(engine)
 
+    # Calculate the most active station.
+    most_active_station = session.query(Measurement.station).\
+        group_by(Measurement.station).\
+        order_by(func.count(Measurement.station).desc()).first()[0]
+
     tobs_query = session.query(Measurement.date, Measurement.station, Measurement.tobs).\
-        filter(Measurement.date >= f'{year_from_latest_date}').\
+        filter(Measurement.date >= '2016-08-23').\
         filter(Measurement.station == most_active_station)
 
     session.close()
